@@ -1,4 +1,5 @@
 import mongoose, { Schema } from "mongoose";
+import slugify from "slugify";
 
 const postSchema = new Schema(
   {
@@ -10,9 +11,7 @@ const postSchema = new Schema(
 
     slug: {
       type: String,
-      required: true,
       unique: true,
-      lowercase: true
     },
 
     content: {
@@ -45,5 +44,13 @@ const postSchema = new Schema(
   },
   { timestamps: true }
 );
+
+// auto genrate slug form title.
+postSchema.pre("save", function (next) {
+  if (!this.slug) {
+    this.slug = slugify(this.title, { lower: true, strict: true });
+  }
+  next();
+});
 
 export const Post = mongoose.model("Post", postSchema);
