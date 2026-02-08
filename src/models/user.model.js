@@ -54,9 +54,9 @@ userSchema.methods.generateAccessToken = function () {
             username: this.username,
             fullName: this.fullName
         },
-        config.accessTokenSec,
+        config.accessTokenSecret,
         {
-            expiresIn: config.accessTokenExp
+            expiresIn: config.accessTokenExpiry
         }
     );
 };
@@ -66,9 +66,9 @@ userSchema.methods.generateRefreshToken = function () {
         {
             _id: this._id
         },
-        config.refereshTokenSec,
+        config.refreshTokenSecret,
         {
-            expiresIn: config.refereshTokenExp
+            expiresIn: config.refreshTokenExpiry
         }
     );
 };
