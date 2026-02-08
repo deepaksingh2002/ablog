@@ -8,7 +8,7 @@ const createPost = asyncHandler(async (req, res) => {
     if(!req.user?._id){
         throw new ApiError(401, "Unauthorized request");
     }
-    if (!title || !metaTitle || !metaDescription ||content) {
+    if (!title || !metaTitle || !metaDescription || !content) {
         throw new ApiError(400, "All fields are required");
     }
     const post = await Post.create({

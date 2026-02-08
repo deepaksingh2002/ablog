@@ -3,28 +3,32 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { User } from "../models/user.model.js";
 import jwt from "jsonwebtoken";
+import { config } from "../config/config.js";
 
 const generateAccessAndRefreshToken = async (userId) => {
-    try {
-        const user = await User.findById(userId);
-        if (!user) throw new ApiError(404, "User not found");
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
 
-        const accessToken = user.generateAccessToken();
-        const refreshToken = user.generateRefreshToken();
+  const accessToken = user.generateAccessToken();
+  const refreshToken = user.generateRefreshToken();
+  
+  if (!accessToken || !refreshToken) {
+    throw new ApiError(500, "Token generation failed");
+  }
 
-        user.refreshToken = refreshToken;
-        await user.save({ validateBeforeSave: false });
-
-        return { accessToken, refreshToken };
-
-    } catch (error) {
-        throw new ApiError(500, error.message || "Error while generating tokens");
-    }
+  user.refreshToken = refreshToken;
+  await user.save({ validateBeforeSave: false });
+  return { accessToken, refreshToken };
 };
+
+
+
 
 const registerUser = asyncHandler(async (req, res) => {
     const { fullName, email, password } = req.body;
-    // console.log("Req from body:: ", req.body);
+    console.log("Req from body:: ", req.body);
 
     if ([fullName, email, password].some(f => !f || f.trim() === "")) {
         throw new ApiError(400, "All fields are required");
@@ -89,16 +93,15 @@ const logInUser = asyncHandler(async (req, res) => {
   const valid = await user.isPasswordCorrect(password);
   if (!valid) throw new ApiError(401, "Invalid credentials");
 
-  const { accessToken, refreshToken } =
-    await generateAccessAndRefreshToken(user._id);
+  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(user._id);
 
   const loggedInUser = await User.findById(user._id)
     .select("-password -refreshToken");
 
   const options = {
     httpOnly: true,
-    secure: true,
-    sameSite: "None",  
+    secure: false,
+    sameSite: "Lax",  
   };
 
   return res
@@ -125,7 +128,7 @@ const logOutUser = asyncHandler(async (req, res) => {
     );
     const options = {
         httpOnly: true,
-        secure: true
+        secure: false
     }
 
     return res.status(200)
@@ -154,7 +157,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   try {
     decoded = jwt.verify(
       incomingRefreshToken,
-      process.env.REFRESH_TOKEN_SECRET
+      config.refereshTokenSec
     );
   } catch (error) {
     throw new ApiError(401, "Refresh token expired or invalid");
@@ -171,8 +174,8 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
   const options = {
     httpOnly: true,
-    secure: true, 
-    sameSite: "None", 
+    secure: false,
+    sameSite:"Lax",
   };
 
   return res
