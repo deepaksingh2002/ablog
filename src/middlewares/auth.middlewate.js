@@ -22,9 +22,47 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
         next()
 
     } catch (error) {
+        // If access token expired, try to refresh using refresh token
         if (error.name === "TokenExpiredError") {
-            throw new ApiError(401, "Access token expired");
+            const incomingRefreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
+
+            if (!incomingRefreshToken) {
+                throw new ApiError(401, "Access token expired");
+            }
+
+            let decodedRefresh;
+            try {
+                decodedRefresh = jwt.verify(incomingRefreshToken, config.refereshTokenSec);
+            } catch (err) {
+                throw new ApiError(401, "Refresh token expired or invalid");
+            }
+
+            const user = await User.findById(decodedRefresh._id);
+            if (!user || user.refreshToken !== incomingRefreshToken) {
+                throw new ApiError(401, "Invalid refresh token");
+            }
+
+            // Generate new tokens
+            const newAccessToken = user.generateAccessToken();
+            const newRefreshToken = user.generateRefreshToken();
+
+            user.refreshToken = newRefreshToken;
+            await user.save({ validateBeforeSave: false });
+
+            const options = {
+                httpOnly: true,
+                secure: false,
+                sameSite: "Lax",
+            };
+
+            res.cookie("accessToken", newAccessToken, options);
+            res.cookie("refreshToken", newRefreshToken, options);
+
+            const sanitizedUser = await User.findById(user._id).select("-password -refreshToken");
+            req.user = sanitizedUser;
+            return next();
         }
+
         throw new ApiError(401, "Invalid access token");
     }
 })
